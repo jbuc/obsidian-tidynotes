@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Automatically keep your notes tidy and organized with rulesets.",
-	"author": "TidyNotes Author",
-	"authorUrl": "https://github.com/yourusername/obsidian-tidynotes",
+	"author": "jbuc",
+	"authorUrl": "https://github.com/jbuc/obsidian-tidynotes",
 	"isDesktopOnly": false
 }

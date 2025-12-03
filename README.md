@@ -13,4 +13,4 @@ TidyNotes is a plugin for Obsidian that helps you automatically keep your notes 
 ## Installation
 This plugin can be installed using the **BRAT** plugin.
 1. Install **BRAT** from the Obsidian Community Plugins.
-2. Add this repository to BRAT: `yourusername/obsidian-tidynotes`.
+2. Add this repository to BRAT: `jbuc/obsidian-tidynotes`.
