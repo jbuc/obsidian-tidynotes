@@ -86,4 +86,57 @@ export class DataviewService {
             return [];
         }
     }
+
+    public async matchesQuery(file: TFile, query: string): Promise<boolean> {
+        if (!this.isAvailable() || !this.api) return false;
+
+        try {
+            // Optimization: Try to use a query that filters by file path directly
+            // e.g. TABLE file.path FROM <query> WHERE file.path = "<path>"
+
+            // Normalize query similar to query() method
+            let dql = query.trim();
+            const viewTypeRegex = /^(LIST|TABLE|TASK|CALENDAR)\s+/i;
+            if (viewTypeRegex.test(dql)) {
+                dql = dql.replace(viewTypeRegex, '');
+            }
+
+            // Escape file path for query
+            // Simple escape for quotes
+            const safePath = file.path.replace(/"/g, '\\"');
+
+            // Construct query: TABLE file.path <user-query> WHERE file.path = "..."
+            // We need to append the WHERE clause carefully.
+            // If the user query already has WHERE, we add AND.
+            // But parsing that is hard.
+            // Easier: Just run the user query and see if the file is in the results.
+            // This might be slow if the user query returns 1000s of files.
+            // But Dataview is generally fast.
+
+            // Let's try to append WHERE file.path = ... if possible.
+            // If we just append `WHERE file.path = ...` it might break if there's already a WHERE.
+            // Safest: Run the query as is, but select file.path.
+
+            const finalQuery = `TABLE file.path ${dql}`;
+            const result = await this.api.query(finalQuery);
+
+            if (!result.successful) return false;
+
+            const rows = result.value.values;
+            for (const row of rows) {
+                // Check if this row corresponds to our file
+                // row[1] is file.path
+                if (row[1] === file.path) return true;
+
+                // Also check row[0] (Link)
+                const link = row[0];
+                if (link && link.path === file.path) return true;
+            }
+
+            return false;
+        } catch (e) {
+            console.error("TidyNotes: Error checking query match", e);
+            return false;
+        }
+    }
 }

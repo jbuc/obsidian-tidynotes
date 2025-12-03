@@ -39,7 +39,104 @@ export class RulesetModal extends Modal {
                     this.display(); // Refresh to show trigger specific options
                 }));
 
-        // Trigger specific options could go here
+        if (this.ruleset.trigger.type === 'manual') {
+            new Setting(contentEl)
+                .setName('Command Name')
+                .setDesc('Custom command name to run this ruleset (requires reload)')
+                .addText(text => text
+                    .setValue(this.ruleset.trigger.options?.commandName || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, commandName: value };
+                    }));
+        } else if (this.ruleset.trigger.type === 'note-change') {
+            new Setting(contentEl)
+                .setName('Match Type')
+                .setDesc('When to run: "To" (starts matching), "From" (stops matching), or "Both"')
+                .addDropdown(dropdown => dropdown
+                    .addOption('to', 'To (Starts Matching)')
+                    .addOption('from', 'From (Stops Matching)')
+                    .addOption('both', 'Both')
+                    .setValue(this.ruleset.trigger.options?.matchType || 'to')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, matchType: value as 'to' | 'from' | 'both' };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Trigger Query')
+                .setDesc('Dataview query to check against (e.g. FROM "Inbox")')
+                .addTextArea(text => text
+                    .setValue(this.ruleset.trigger.options?.query || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, query: value };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Delay (seconds)')
+                .setDesc('Wait time after change before running')
+                .addText(text => text
+                    .setValue((this.ruleset.trigger.options?.delay || 0).toString())
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, delay: parseInt(value) || 0 };
+                    }));
+        } else if (this.ruleset.trigger.type === 'on-load') {
+            new Setting(contentEl)
+                .setName('Frequency')
+                .setDesc('How often should this ruleset run?')
+                .addDropdown(dropdown => dropdown
+                    .addOption('every', 'Every Startup')
+                    .addOption('once-every', 'Once Every...')
+                    .setValue(this.ruleset.trigger.options?.frequency || 'every')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, frequency: value as 'every' | 'once-every' };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Delay (seconds)')
+                .setDesc('Wait time after load before running')
+                .addText(text => text
+                    .setValue((this.ruleset.trigger.options?.delay || 0).toString())
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, delay: parseInt(value) || 0 };
+                    }));
+
+            contentEl.createEl('h4', { text: 'Schedule (Leave empty for "Any")' });
+
+            new Setting(contentEl)
+                .setName('Days of Week')
+                .setDesc('Comma separated 1-7 (Mon-Sun)')
+                .addText(text => text
+                    .setValue(this.ruleset.trigger.options?.daysOfWeek || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, daysOfWeek: value };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Hours of Day')
+                .setDesc('Comma separated ranges 0-24 (e.g. 9-17)')
+                .addText(text => text
+                    .setValue(this.ruleset.trigger.options?.hoursOfDay || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, hoursOfDay: value };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Weeks of Month')
+                .setDesc('Comma separated 1-4')
+                .addText(text => text
+                    .setValue(this.ruleset.trigger.options?.weeksOfMonth || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, weeksOfMonth: value };
+                    }));
+
+            new Setting(contentEl)
+                .setName('Months of Year')
+                .setDesc('Comma separated 1-12')
+                .addText(text => text
+                    .setValue(this.ruleset.trigger.options?.monthsOfYear || '')
+                    .onChange(value => {
+                        this.ruleset.trigger.options = { ...this.ruleset.trigger.options, monthsOfYear: value };
+                    }));
+        }
 
         contentEl.createEl('h3', { text: 'Rules' });
 
@@ -56,6 +153,15 @@ export class RulesetModal extends Modal {
                     .setPlaceholder('Rule Name')
                     .setValue(rule.name)
                     .onChange(value => rule.name = value))
+                .addDropdown(dropdown => dropdown
+                    .addOption('if', 'If')
+                    .addOption('else-if', 'Else If')
+                    .addOption('else', 'Else')
+                    .setValue(rule.type || 'if')
+                    .onChange(value => {
+                        rule.type = value as 'if' | 'else-if' | 'else';
+                        this.display();
+                    }))
                 .addButton(btn => btn
                     .setButtonText('Delete')
                     .setWarning()
@@ -64,12 +170,24 @@ export class RulesetModal extends Modal {
                         this.display();
                     }));
 
-            new Setting(ruleDiv)
+            const scopeSetting = new Setting(ruleDiv)
                 .setName('Scope (Dataview Query)')
                 .setDesc('e.g. FROM "Inbox"')
                 .addTextArea(text => text
                     .setValue(rule.scope)
                     .onChange(value => rule.scope = value));
+
+            scopeSetting.addButton(btn => btn
+                .setButtonText('Preview')
+                .onClick(async () => {
+                    // @ts-ignore
+                    const plugin = this.app.plugins.plugins['obsidian-tidynotes'];
+                    if (plugin) {
+                        const files = await plugin.core.dataview.query(rule.scope);
+                        new Notice(`Found ${files.length} matching files.`);
+                        console.log("TidyNotes Preview Results:", files.map((f: any) => f.path));
+                    }
+                }));
 
             // Actions for this rule
             ruleDiv.createEl('h4', { text: 'Actions' });
@@ -136,6 +254,7 @@ export class RulesetModal extends Modal {
                     this.ruleset.rules.push({
                         id: Date.now().toString(),
                         name: 'New Rule',
+                        type: 'if',
                         scope: '',
                         actions: []
                     });

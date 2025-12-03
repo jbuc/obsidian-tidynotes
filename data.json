@@ -1,27 +1,54 @@
 {
   "rulesets": [
     {
-      "id": "1764799941897",
-      "name": "Task Management",
+      "id": "1764803996943",
+      "name": "Note Changes",
       "enabled": true,
       "trigger": {
-        "type": "manual"
+        "type": "on-load",
+        "options": {
+          "query": "FROM -\"To Do/Tasks\" WHERE type",
+          "matchType": "both"
+        }
       },
       "rules": [
         {
-          "id": "1764799963106",
-          "name": "Move Tasks",
-          "scope": "LIST FROM \"\" WHERE contains(type,\"task\")",
+          "id": "1764804529227",
+          "name": "Tasks",
+          "type": "if",
+          "scope": "FROM -\"To Do/Tasks\" WHERE contains(type,\"task\")",
           "actions": [
             {
               "type": "Move Note",
               "options": {
                 "folder": "To Do/Tasks"
               }
+            },
+            {
+              "type": "Update Property",
+              "options": {
+                "key": "status",
+                "value": "todo"
+              }
+            }
+          ]
+        },
+        {
+          "id": "1764804651556",
+          "name": "Projects",
+          "type": "else-if",
+          "scope": "FROM -\"To Do/Projects\" WHERE contains(type,\"project\")",
+          "actions": [
+            {
+              "type": "Move Note",
+              "options": {
+                "folder": "To Do/Projects"
+              }
             }
           ]
         }
-      ]
+      ],
+      "lastRun": 1764805767666
     }
   ]
 }

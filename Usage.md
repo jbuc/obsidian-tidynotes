@@ -22,9 +22,9 @@ Find any notes that need to move to the "Tasks" folder.
 
 ### Complex Ruleset: Organize Inbox
 Run when new notes are added to a folder and are updated based on logical criteria.
-- **Trigger**: "On Change"
-    - **When**: "to"
-    - **Query**: `FROM "Inbox"`
+- **Trigger**: "Note Changes"
+    - **Match Type**: "To (Starts Matching)"
+    - **Trigger Query**: `FROM "Inbox"`
     - **Delay**: "60" seconds
 - **Rule**: "if"
     - **Scope**: `FROM "Inbox" WHERE contains(type,"task")`
