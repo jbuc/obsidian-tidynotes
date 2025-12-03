@@ -1,5 +1,7 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Modal } from 'obsidian';
 import TidyNotesPlugin from './main';
+import { RulesetModal } from './ui/RulesetModal';
+import { Ruleset } from './types';
 
 export class TidyNotesSettingTab extends PluginSettingTab {
     plugin: TidyNotesPlugin;
@@ -22,8 +24,18 @@ export class TidyNotesSettingTab extends PluginSettingTab {
             .addButton(button => button
                 .setButtonText('Add Ruleset')
                 .onClick(async () => {
-                    // Placeholder for adding a ruleset
-                    console.log('Add ruleset clicked');
+                    const newRuleset: Ruleset = {
+                        id: Date.now().toString(),
+                        name: 'New Ruleset',
+                        enabled: true,
+                        trigger: { type: 'manual' },
+                        rules: []
+                    };
+                    new RulesetModal(this.app, newRuleset, async (savedRuleset) => {
+                        this.plugin.settings.rulesets.push(savedRuleset);
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }).open();
                 }));
 
         containerEl.createEl('h3', { text: 'Existing Rulesets' });
@@ -31,15 +43,32 @@ export class TidyNotesSettingTab extends PluginSettingTab {
         if (this.plugin.settings.rulesets.length === 0) {
             containerEl.createEl('p', { text: 'No rulesets defined.' });
         } else {
-            this.plugin.settings.rulesets.forEach(ruleset => {
-                new Setting(containerEl)
+            this.plugin.settings.rulesets.forEach((ruleset, index) => {
+                const setting = new Setting(containerEl)
                     .setName(ruleset.name)
-                    .setDesc(`Trigger: ${ruleset.trigger.type}`)
+                    .setDesc(`Trigger: ${ruleset.trigger.type} `)
                     .addToggle(toggle => toggle
                         .setValue(ruleset.enabled)
                         .onChange(async (value) => {
                             ruleset.enabled = value;
                             await this.plugin.saveSettings();
+                        }))
+                    .addButton(btn => btn
+                        .setButtonText('Edit')
+                        .onClick(() => {
+                            new RulesetModal(this.app, ruleset, async (savedRuleset) => {
+                                this.plugin.settings.rulesets[index] = savedRuleset;
+                                await this.plugin.saveSettings();
+                                this.display();
+                            }).open();
+                        }))
+                    .addButton(btn => btn
+                        .setButtonText('Delete')
+                        .setWarning()
+                        .onClick(async () => {
+                            this.plugin.settings.rulesets.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display();
                         }));
             });
         }

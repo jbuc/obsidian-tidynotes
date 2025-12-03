@@ -1,0 +1,27 @@
+{
+  "rulesets": [
+    {
+      "id": "1764799941897",
+      "name": "Task Management",
+      "enabled": true,
+      "trigger": {
+        "type": "manual"
+      },
+      "rules": [
+        {
+          "id": "1764799963106",
+          "name": "Move Tasks",
+          "scope": "LIST FROM \"\" WHERE contains(type,\"task\")",
+          "actions": [
+            {
+              "type": "Move Note",
+              "options": {
+                "folder": "To Do/Tasks"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
