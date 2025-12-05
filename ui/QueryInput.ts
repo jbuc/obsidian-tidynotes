@@ -85,6 +85,10 @@ export function addQueryInput(
             .onClick(() => {
                 const isHidden = content.style.display === 'none';
                 content.style.display = isHidden ? 'block' : 'none';
+
+                // Update button text
+                btn.setButtonText(isHidden ? 'Save Query' : 'Edit Query');
+
                 updateState();
 
                 // Run preview when closing
@@ -107,16 +111,5 @@ export function addQueryInput(
     textArea.oninput = () => {
         onChange(textArea.value);
         updateState();
-    };
-
-    // Optional: Keep the manual preview button?
-    // User said "have preview run whenever the query box is closed".
-    // But a manual button might still be useful while editing.
-    // Let's keep it but maybe rename or style it?
-    // The previous implementation had it. Let's keep it for now.
-    const previewBtn = content.createEl('button', { text: 'Preview', cls: 'tidynotes-preview-btn' });
-    previewBtn.onclick = async () => {
-        await runPreview();
-        new Notice(setting.descEl.innerText); // Show notice as well for manual click
     };
 }

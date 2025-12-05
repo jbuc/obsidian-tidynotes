@@ -13,6 +13,7 @@ export class TidyNotesSettingTab extends PluginSettingTab {
     }
 
     activeTab: 'rulesets' | 'log' = 'rulesets';
+    isEditingRulesets: boolean = false;
 
     display(): void {
         const { containerEl } = this;
@@ -79,7 +80,14 @@ export class TidyNotesSettingTab extends PluginSettingTab {
             .setName('Manage Rulesets')
             .setDesc('View and edit your rulesets')
             .addButton(button => button
+                .setButtonText(this.isEditingRulesets ? 'Done' : 'Edit')
+                .onClick(() => {
+                    this.isEditingRulesets = !this.isEditingRulesets;
+                    this.display();
+                }))
+            .addButton(button => button
                 .setButtonText('Add Ruleset')
+                .setDisabled(this.isEditingRulesets) // Disable add in edit mode
                 .onClick(async () => {
                     const newRuleset: any = {
                         id: Date.now().toString(),
@@ -94,6 +102,9 @@ export class TidyNotesSettingTab extends PluginSettingTab {
                 }));
 
         const rulesetsContainer = containerEl.createDiv({ cls: 'tidynotes-rulesets-list' });
+        if (this.isEditingRulesets) {
+            rulesetsContainer.addClass('is-editing');
+        }
 
         this.plugin.settings.rulesets.forEach((ruleset, index) => {
             const rulesetDiv = rulesetsContainer.createDiv({ cls: 'tidynotes-ruleset-container' });
@@ -102,39 +113,33 @@ export class TidyNotesSettingTab extends PluginSettingTab {
             const header = new Setting(rulesetDiv);
             header.setClass('tidynotes-ruleset-header');
 
-            // Collapse Button
-            const collapseBtn = header.controlEl.createEl('div', { cls: 'tidynotes-collapse-btn' });
-            // Default to collapsed unless it's a new ruleset (maybe?) or persist state?
-            // For now, default collapsed.
-            setIcon(collapseBtn, 'chevron-right');
-
             const editorContainer = rulesetDiv.createDiv({ cls: 'tidynotes-ruleset-editor' });
             editorContainer.style.display = 'none'; // Hidden by default
 
-            collapseBtn.onclick = () => {
-                const isCollapsed = editorContainer.style.display === 'none';
-                if (isCollapsed) {
-                    editorContainer.style.display = 'block';
-                    setIcon(collapseBtn, 'chevron-down');
-                    // Render editor only when expanded to save resources? Or just toggle visibility.
-                    // Let's render immediately but hide.
-                } else {
-                    editorContainer.style.display = 'none';
-                    setIcon(collapseBtn, 'chevron-right');
-                }
-            };
-            header.controlEl.prepend(collapseBtn);
+            // NORMAL MODE ELEMENTS
+            if (!this.isEditingRulesets) {
+                // Collapse Button
+                const collapseBtn = header.controlEl.createEl('div', { cls: 'tidynotes-collapse-btn' });
+                // Default to collapsed unless it's a new ruleset (maybe?) or persist state?
+                // For now, default collapsed.
+                setIcon(collapseBtn, 'chevron-right');
 
-            // Enabled Toggle
-            header.addToggle(toggle => toggle
-                .setValue(ruleset.enabled)
-                .setTooltip('Enable/Disable Ruleset')
-                .onChange(async (value) => {
-                    ruleset.enabled = value;
-                    await this.plugin.saveSettings();
-                }));
+                collapseBtn.onclick = () => {
+                    const isCollapsed = editorContainer.style.display === 'none';
+                    if (isCollapsed) {
+                        editorContainer.style.display = 'block';
+                        setIcon(collapseBtn, 'chevron-down');
+                        // Render editor only when expanded to save resources? Or just toggle visibility.
+                        // Let's render immediately but hide.
+                    } else {
+                        editorContainer.style.display = 'none';
+                        setIcon(collapseBtn, 'chevron-right');
+                    }
+                };
+                header.controlEl.prepend(collapseBtn);
+            }
 
-            // Name (Inline Editable)
+            // Name (Inline Editable) - Always visible
             header.addText(text => {
                 text.setValue(ruleset.name)
                     .setPlaceholder('Ruleset Name')
@@ -147,53 +152,75 @@ export class TidyNotesSettingTab extends PluginSettingTab {
                 text.inputEl.style.fontSize = '1.1em';
             });
 
-            // Reorder Buttons
-            const reorderContainer = header.controlEl.createDiv({ cls: 'tidynotes-reorder-btns' });
+            // NORMAL MODE ELEMENTS (Right Side)
+            if (!this.isEditingRulesets) {
+                // Enabled Toggle - Pushed to far right via CSS
+                header.addToggle(toggle => toggle
+                    .setValue(ruleset.enabled)
+                    .setTooltip('Enable/Disable Ruleset')
+                    .onChange(async (value) => {
+                        ruleset.enabled = value;
+                        await this.plugin.saveSettings();
+                    }));
 
-            const upBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
-            setIcon(upBtn, 'arrow-up');
-            upBtn.onclick = async () => {
-                if (index > 0) {
-                    const temp = this.plugin.settings.rulesets[index];
-                    this.plugin.settings.rulesets[index] = this.plugin.settings.rulesets[index - 1];
-                    this.plugin.settings.rulesets[index - 1] = temp;
-                    await this.plugin.saveSettings();
-                    this.display();
-                }
-            };
-            if (index === 0) upBtn.disabled = true;
+                // Add a spacer class to the toggle container if needed, or handle in CSS
+                const toggleEl = header.controlEl.lastElementChild as HTMLElement;
+                if (toggleEl) toggleEl.addClass('tidynotes-ruleset-toggle');
+            }
 
-            const downBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
-            setIcon(downBtn, 'arrow-down');
-            downBtn.onclick = async () => {
-                if (index < this.plugin.settings.rulesets.length - 1) {
-                    const temp = this.plugin.settings.rulesets[index];
-                    this.plugin.settings.rulesets[index] = this.plugin.settings.rulesets[index + 1];
-                    this.plugin.settings.rulesets[index + 1] = temp;
-                    await this.plugin.saveSettings();
-                    this.display();
-                }
-            };
-            if (index === this.plugin.settings.rulesets.length - 1) downBtn.disabled = true;
+            // EDIT MODE ELEMENTS
+            if (this.isEditingRulesets) {
+                // Reorder Buttons
+                const reorderContainer = header.controlEl.createDiv({ cls: 'tidynotes-reorder-btns' });
 
-            reorderContainer.style.marginLeft = 'auto';
-
-            // Delete Button
-            header.addButton(btn => btn
-                .setIcon('trash')
-                .setWarning()
-                .setTooltip('Delete Ruleset')
-                .onClick(async () => {
-                    if (confirm(`Are you sure you want to delete ruleset "${ruleset.name}"?`)) {
-                        this.plugin.settings.rulesets.splice(index, 1);
+                const upBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
+                setIcon(upBtn, 'arrow-up');
+                upBtn.onclick = async () => {
+                    if (index > 0) {
+                        const temp = this.plugin.settings.rulesets[index];
+                        this.plugin.settings.rulesets[index] = this.plugin.settings.rulesets[index - 1];
+                        this.plugin.settings.rulesets[index - 1] = temp;
                         await this.plugin.saveSettings();
                         this.display();
                     }
-                }));
+                };
+                if (index === 0) upBtn.disabled = true;
 
-            // Editor Body
-            const editor = new RulesetEditor(this.app, this.plugin, ruleset, editorContainer);
-            editor.display();
+                const downBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
+                setIcon(downBtn, 'arrow-down');
+                downBtn.onclick = async () => {
+                    if (index < this.plugin.settings.rulesets.length - 1) {
+                        const temp = this.plugin.settings.rulesets[index];
+                        this.plugin.settings.rulesets[index] = this.plugin.settings.rulesets[index + 1];
+                        this.plugin.settings.rulesets[index + 1] = temp;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }
+                };
+                if (index === this.plugin.settings.rulesets.length - 1) downBtn.disabled = true;
+
+                reorderContainer.style.marginLeft = 'auto';
+
+                // Delete Button
+                header.addButton(btn => btn
+                    .setIcon('trash')
+                    .setWarning()
+                    .setTooltip('Delete Ruleset')
+                    .onClick(async () => {
+                        if (confirm(`Are you sure you want to delete ruleset "${ruleset.name}"?`)) {
+                            this.plugin.settings.rulesets.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display();
+                        }
+                    }));
+            }
+
+            // Editor Body - Only render if NOT in edit mode (or just keep hidden)
+            // In edit mode, we want to force collapse, so we just don't show it or keep it hidden.
+            if (!this.isEditingRulesets) {
+                const editor = new RulesetEditor(this.app, this.plugin, ruleset, editorContainer);
+                editor.display();
+            }
         });
     }
 

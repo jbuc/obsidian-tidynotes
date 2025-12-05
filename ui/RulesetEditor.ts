@@ -8,6 +8,7 @@ export class RulesetEditor {
     plugin: TidyNotesPlugin;
     ruleset: Ruleset;
     containerEl: HTMLElement;
+    private isEditingRules: boolean = false;
 
     constructor(app: App, plugin: TidyNotesPlugin, ruleset: Ruleset, containerEl: HTMLElement) {
         this.app = app;
@@ -143,7 +144,16 @@ export class RulesetEditor {
                     }));
         }
 
-        contentEl.createEl('h3', { text: 'Rules' });
+        // Rules Header "Manage Rules"
+        new Setting(contentEl)
+            .setName('Manage Rules')
+            .setDesc('Add or edit rules')
+            .addButton(btn => btn
+                .setButtonText(this.isEditingRules ? 'Done' : 'Edit')
+                .onClick(() => {
+                    this.isEditingRules = !this.isEditingRules;
+                    this.display();
+                }));
 
         this.ruleset.rules.forEach((rule, index) => {
             const ruleDiv = contentEl.createDiv({ cls: 'tidynotes-rule-container' });
@@ -152,30 +162,36 @@ export class RulesetEditor {
             ruleDiv.style.marginBottom = '10px';
             ruleDiv.style.borderRadius = '5px';
 
+            // In Edit Mode, force collapse visual style if needed, or just handle content visibility
+            if (this.isEditingRules) {
+                ruleDiv.addClass('is-collapsed');
+            }
+
             const ruleSetting = new Setting(ruleDiv);
             ruleSetting.setClass('tidynotes-rule-header');
 
-            // 0. Collapse Button (Far Left)
-            const collapseBtn = ruleSetting.controlEl.createEl('div', { cls: 'tidynotes-collapse-btn' });
-            if (ruleDiv.hasClass('is-collapsed')) {
-                setIcon(collapseBtn, 'chevron-right');
-            } else {
-                setIcon(collapseBtn, 'chevron-down');
-            }
-
-            collapseBtn.onclick = () => {
-                ruleDiv.toggleClass('is-collapsed', !ruleDiv.hasClass('is-collapsed'));
-                const contentContainer = ruleDiv.querySelector('.tidynotes-rule-content') as HTMLElement;
+            // 0. Collapse Button (Only if NOT editing)
+            if (!this.isEditingRules) {
+                const collapseBtn = ruleSetting.controlEl.createEl('div', { cls: 'tidynotes-collapse-btn' });
                 if (ruleDiv.hasClass('is-collapsed')) {
                     setIcon(collapseBtn, 'chevron-right');
-                    if (contentContainer) contentContainer.style.display = 'none';
                 } else {
                     setIcon(collapseBtn, 'chevron-down');
-                    if (contentContainer) contentContainer.style.display = 'block';
                 }
-            };
 
-            ruleSetting.controlEl.prepend(collapseBtn);
+                collapseBtn.onclick = () => {
+                    ruleDiv.toggleClass('is-collapsed', !ruleDiv.hasClass('is-collapsed'));
+                    const contentContainer = ruleDiv.querySelector('.tidynotes-rule-content') as HTMLElement;
+                    if (ruleDiv.hasClass('is-collapsed')) {
+                        setIcon(collapseBtn, 'chevron-right');
+                        if (contentContainer) contentContainer.style.display = 'none';
+                    } else {
+                        setIcon(collapseBtn, 'chevron-down');
+                        if (contentContainer) contentContainer.style.display = 'block';
+                    }
+                };
+                ruleSetting.controlEl.prepend(collapseBtn);
+            }
 
             // 1. Label "Rule X:"
             ruleSetting.controlEl.createSpan({
@@ -183,7 +199,7 @@ export class RulesetEditor {
                 cls: 'tidynotes-rule-label'
             });
 
-            // 2. Name Input (Inline Editable)
+            // 2. Name Input (Always Editable, Styled)
             ruleSetting.addText(text => {
                 text.setValue(rule.name)
                     .setPlaceholder('Rule Name')
@@ -191,55 +207,62 @@ export class RulesetEditor {
                         rule.name = value;
                         await this.plugin.saveSettings();
                     });
-
                 text.inputEl.addClass('tidynotes-editable-name');
             });
 
-            // 3. Reorder Buttons
-            const reorderContainer = ruleSetting.controlEl.createDiv({ cls: 'tidynotes-reorder-btns' });
+            // 3. Edit Mode Controls (Reorder / Delete)
+            if (this.isEditingRules) {
+                const reorderContainer = ruleSetting.controlEl.createDiv({ cls: 'tidynotes-reorder-btns' });
 
-            const upBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
-            setIcon(upBtn, 'arrow-up');
-            upBtn.onclick = async () => {
-                if (index > 0) {
-                    const temp = this.ruleset.rules[index];
-                    this.ruleset.rules[index] = this.ruleset.rules[index - 1];
-                    this.ruleset.rules[index - 1] = temp;
-                    await this.plugin.saveSettings();
-                    this.display();
-                }
-            };
-            if (index === 0) upBtn.disabled = true;
+                const upBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
+                setIcon(upBtn, 'arrow-up');
+                upBtn.onclick = async () => {
+                    if (index > 0) {
+                        const temp = this.ruleset.rules[index];
+                        this.ruleset.rules[index] = this.ruleset.rules[index - 1];
+                        this.ruleset.rules[index - 1] = temp;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }
+                };
+                if (index === 0) upBtn.disabled = true;
 
-            const downBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
-            setIcon(downBtn, 'arrow-down');
-            downBtn.onclick = async () => {
-                if (index < this.ruleset.rules.length - 1) {
-                    const temp = this.ruleset.rules[index];
-                    this.ruleset.rules[index] = this.ruleset.rules[index + 1];
-                    this.ruleset.rules[index + 1] = temp;
-                    await this.plugin.saveSettings();
-                    this.display();
-                }
-            };
-            if (index === this.ruleset.rules.length - 1) downBtn.disabled = true;
+                const downBtn = reorderContainer.createEl('button', { cls: 'clickable-icon' });
+                setIcon(downBtn, 'arrow-down');
+                downBtn.onclick = async () => {
+                    if (index < this.ruleset.rules.length - 1) {
+                        const temp = this.ruleset.rules[index];
+                        this.ruleset.rules[index] = this.ruleset.rules[index + 1];
+                        this.ruleset.rules[index + 1] = temp;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }
+                };
+                if (index === this.ruleset.rules.length - 1) downBtn.disabled = true;
 
-            // 4. Delete Button
-            ruleSetting.addButton(btn => btn
-                .setIcon('trash')
-                .setWarning()
-                .onClick(async () => {
-                    this.ruleset.rules.splice(index, 1);
-                    await this.plugin.saveSettings();
-                    this.display();
-                }));
+                reorderContainer.style.marginLeft = 'auto';
 
-            reorderContainer.style.marginLeft = 'auto';
+                ruleSetting.addButton(btn => btn
+                    .setIcon('trash')
+                    .setWarning()
+                    .onClick(async () => {
+                        if (confirm(`Are you sure you want to delete rule "${rule.name}"?`)) {
+                            this.ruleset.rules.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display();
+                        }
+                    }));
+            }
 
             // Content Container
             const contentContainer = ruleDiv.createDiv({ cls: 'tidynotes-rule-content' });
 
-            // Scope Setting
+            // Allow content to be hidden when collapsed or in edit mode
+            if (ruleDiv.hasClass('is-collapsed') || this.isEditingRules) {
+                contentContainer.style.display = 'none';
+            }
+
+            // --- Scope Setting ---
             const scopeSetting = new Setting(contentContainer)
                 .setName('Query Match')
                 .setDesc('e.g. FROM "Inbox"');
@@ -249,11 +272,11 @@ export class RulesetEditor {
                 if (rule.type !== 'if') {
                     rule.type = 'if';
                 }
-                const logicLabel = scopeSetting.controlEl.createSpan({
+                const logicLabel = createSpan({
                     text: 'IF',
                     cls: 'tidynotes-logic-label'
                 });
-                scopeSetting.settingEl.prepend(logicLabel);
+                scopeSetting.nameEl.prepend(logicLabel);
             } else {
                 scopeSetting.addDropdown(dropdown => dropdown
                     .addOption('if', 'If')
@@ -268,7 +291,7 @@ export class RulesetEditor {
 
                 const dropdownEl = scopeSetting.controlEl.firstElementChild as HTMLElement;
                 if (dropdownEl) {
-                    scopeSetting.settingEl.prepend(dropdownEl);
+                    scopeSetting.nameEl.prepend(dropdownEl);
                     dropdownEl.addClass('tidynotes-logic-dropdown');
                 }
             }
@@ -283,7 +306,7 @@ export class RulesetEditor {
                 }
             );
 
-            // Actions
+            // --- Actions ---
             const actionsHeader = new Setting(contentContainer)
                 .setName('Actions')
                 .setHeading();
@@ -354,6 +377,7 @@ export class RulesetEditor {
         new Setting(contentEl)
             .addButton(btn => btn
                 .setButtonText('Add Rule')
+                .setDisabled(this.isEditingRules)
                 .onClick(async () => {
                     this.ruleset.rules.push({
                         id: Date.now().toString(),
