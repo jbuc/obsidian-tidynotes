@@ -37,7 +37,7 @@ export class DataviewService {
 
             if (!result.successful) {
                 console.error("TidyNotes: Dataview query failed", result.error);
-                return [];
+                throw new Error(result.error || "Dataview query failed");
             }
 
             const files: TFile[] = [];
@@ -83,7 +83,7 @@ export class DataviewService {
             return files;
         } catch (e) {
             console.error("TidyNotes: Error executing Dataview query", e);
-            return [];
+            throw e;
         }
     }
 

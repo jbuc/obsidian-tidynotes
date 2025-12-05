@@ -1,9 +1,11 @@
 export interface TidyNotesSettings {
     rulesets: Ruleset[];
+    excludedQuery?: string;
 }
 
 export const DEFAULT_SETTINGS: TidyNotesSettings = {
-    rulesets: []
+    rulesets: [],
+    excludedQuery: ""
 }
 
 export interface Ruleset {

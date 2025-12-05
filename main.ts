@@ -17,7 +17,7 @@ export default class TidyNotesPlugin extends Plugin {
         await this.loadSettings();
 
         this.logger = new LogService(this);
-        this.core = new TidyNotesCore(this.app, this.logger);
+        this.core = new TidyNotesCore(this.app, this.logger, () => this.settings);
         this.stateManager = new StateManager(this);
         await this.stateManager.load();
 
@@ -38,10 +38,10 @@ export default class TidyNotesPlugin extends Plugin {
 
         // Register custom commands for manual rulesets
         this.settings.rulesets.forEach(ruleset => {
-            if (ruleset.trigger.type === 'manual' && ruleset.trigger.options?.commandName) {
+            if (ruleset.trigger.type === 'manual') {
                 this.addCommand({
                     id: `run-ruleset-${ruleset.id}`,
-                    name: `${ruleset.trigger.options.commandName}`,
+                    name: `Run: ${ruleset.name}`,
                     callback: async () => {
                         new Notice(`Running TidyNotes: ${ruleset.name}`);
                         await this.core.runRuleset(ruleset);
@@ -225,6 +225,14 @@ export default class TidyNotesPlugin extends Plugin {
     }
 
     async runNoteChangeRulesets(file: TFile) {
+        // Check global exclusion
+        if (this.settings.excludedQuery) {
+            const isExcluded = await this.core.dataview.matchesQuery(file, this.settings.excludedQuery);
+            if (isExcluded) {
+                return;
+            }
+        }
+
         const oldMatches = this.stateManager.getMatches(file);
         const newMatches: string[] = [];
         const rulesetsToRun: any[] = [];

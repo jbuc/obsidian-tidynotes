@@ -5,7 +5,7 @@
       "name": "Note Changes",
       "enabled": true,
       "trigger": {
-        "type": "on-load",
+        "type": "manual",
         "options": {
           "query": "FROM -\"To Do/Tasks\" WHERE type",
           "matchType": "both"
@@ -48,7 +48,8 @@
           ]
         }
       ],
-      "lastRun": 1764805767666
+      "lastRun": 1764890084016
     }
-  ]
+  ],
+  "excludedQuery": "FROM \"\" WHERE contains(file.folder, \"_\")"
 }

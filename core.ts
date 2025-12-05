@@ -1,5 +1,5 @@
 import { App, TFile, Notice } from 'obsidian';
-import { Ruleset, Rule, Action } from './types';
+import { Ruleset, Rule, Action, TidyNotesSettings } from './types';
 import { DataviewService } from './dataview';
 import { LogService } from './logger';
 
@@ -7,15 +7,27 @@ export class TidyNotesCore {
     app: App;
     dataview: DataviewService;
     logger: LogService;
+    getSettings: () => TidyNotesSettings;
 
-    constructor(app: App, logger: LogService) {
+    constructor(app: App, logger: LogService, getSettings: () => TidyNotesSettings) {
         this.app = app;
         this.dataview = new DataviewService(app);
         this.logger = logger;
+        this.getSettings = getSettings;
     }
 
     async runRulesetForFile(ruleset: Ruleset, file: TFile, dryRun: boolean = false) {
         if (!ruleset.enabled) return;
+
+        // Check global exclusion
+        const excludedQuery = this.getSettings().excludedQuery;
+        if (excludedQuery) {
+            const isExcluded = await this.dataview.matchesQuery(file, excludedQuery);
+            if (isExcluded) {
+                this.logger.info(`Skipping file "${file.path}" because it matches global exclusion query: "${excludedQuery}"`);
+                return;
+            }
+        }
 
         this.logger.info(`Running ruleset "${ruleset.name}" for file "${file.path}"`);
         let groupMatched = false;
@@ -65,6 +77,15 @@ export class TidyNotesCore {
 
         this.logger.info(`Running global ruleset "${ruleset.name}"`);
 
+        // Check global exclusion
+        const excludedQuery = this.getSettings().excludedQuery;
+        const excludedFiles = new Set<string>();
+        if (excludedQuery) {
+            const files = await this.dataview.query(excludedQuery);
+            files.forEach(f => excludedFiles.add(f.path));
+            this.logger.info(`Global exclusion query "${excludedQuery}" found ${excludedFiles.size} files to exclude.`);
+        }
+
         // Global run
         // Track which files have matched in the current "If/Else" group
         let fileMatchedInGroup = new Set<string>();
@@ -87,7 +108,13 @@ export class TidyNotesCore {
                 continue;
             } else {
                 matchingFiles = await this.dataview.query(rule.scope);
-                this.logger.info(`Rule "${rule.name}" (${ruleType}) query "${rule.scope}" found ${matchingFiles.length} files.`);
+
+                // Filter excluded files
+                if (excludedFiles.size > 0) {
+                    matchingFiles = matchingFiles.filter(f => !excludedFiles.has(f.path));
+                }
+
+                this.logger.info(`Rule "${rule.name}" (${ruleType}) query "${rule.scope}" found ${matchingFiles.length} files (after exclusion).`);
             }
 
             for (const file of matchingFiles) {
